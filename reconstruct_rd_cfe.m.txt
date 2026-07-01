@@ -1,0 +1,79 @@
+function reconstruct_fd_cfe()
+  %======================================================================
+  % Reconstruct rational function from Forward Division CFE partial quotients
+  % Produces canonical N(s)/D(s) using symbolic numden.
+  %======================================================================
+
+  try
+    pkg load symbolic
+  catch
+    error("symbolic package required: install using -> pkg install -forge symbolic");
+  end_try_catch
+
+  s = sym("s");
+
+  printf("===============================================\n");
+  printf("  CFE Reconstruction for Rational Function\n");
+  printf("===============================================\n");
+
+  % --- Input Prompts ---
+  lead = input("Does the CFE have a leading quotient (a0)? (y/n): ", "s");
+  lead = lower(strtrim(lead));
+  if isempty(lead)
+    error("You must answer y or n.");
+  endif
+  has_leading = (lead(1) == 'y');  % accepts 'y', 'yes', 'Y', 'YES', etc.
+
+  n = input("Enter total number of partial quotients: ");
+
+  if n <= 0
+    error("Number of quotients must be > 0");
+  endif
+
+  quotients = cell(1, n);
+  printf("\nEnter partial quotients (e.g., s^2, s+1, -s-2, s+2)\n");
+
+  for i = 1:n
+    prompt = sprintf("  Enter a%d : ", i - 1);
+    q_str = input(prompt, "s");
+    quotients{i} = sym(q_str);
+  endfor
+
+  %==================== Reconstruction Step ==========================
+  % Build from the last quotient upwards:
+  result = quotients{end};
+
+  for i = n-1:-1:1
+    result = quotients{i} + 1/result;
+    result = simplify(result);   % keep expression manageable
+  endfor
+
+  % If there is no leading a0, the overall F(s) = 1 / (constructed CFE)
+  if ~has_leading
+    result = 1 / result;
+  endif
+
+  %==================== Force single rational fraction N(s)/D(s) ==============
+  % IMPORTANT STEP: combine everything over a common denominator
+  final_function = factor(result);
+
+  % Now numden will see a proper rational function
+  [N_raw, D_raw] = numden(final_function);
+
+  % Final cleanup: expand and collect in powers of s
+  N = collect(expand(N_raw), s);
+  D = collect(expand(D_raw), s);
+
+  rational_form = N / D;
+
+  %==================== Output =============================
+  printf("\n===============================================\n");
+  printf("  Final reconstructed rational function F(s)\n");
+  printf("===============================================\n");
+  printf("F(s) = %s\n", char(rational_form));
+  printf("\nN(s) = %s\n", char(N));
+  printf("D(s) = %s\n", char(D));
+  printf("===============================================\n");
+
+endfunction
+
